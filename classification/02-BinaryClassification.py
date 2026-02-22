@@ -35,7 +35,7 @@ rice_dataset = rice_dataset_raw[
 #     rice_dataset, x=x_axis_data, y=y_axis_data, z=z_axis_data, color="Class"
 # ).show()
 
-"""Normalizing the numerical Vlaue
+""" Normalizing the numerical Vlaue
     calculating Z-scores of each vlaues
 """
 
@@ -48,6 +48,15 @@ normalized_dataset["Class"] = rice_dataset["Class"]
 
 print(normalized_dataset.head())
 
-#sets random for mutiple libraires
+# sets random for mutiple libraires
 keras.utils.set_random_seed(42)
 
+# Create a column setting the Cammeo label to '1' and the Osmancik label to '0'
+# then show 10 randomly selected rows.
+# day2nd 
+normalized_dataset["Class_Bool"] = (
+    # Returns true if class is Cammeo, and false if class is Osmancik
+    normalized_dataset["Class"]
+    == "Cammeo"
+).astype(int)
+normalized_dataset.sample(10)
