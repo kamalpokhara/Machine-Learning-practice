@@ -76,3 +76,83 @@ validation_data = shuffled_dataset.iloc[index_80th:index_90th]
 test_data = shuffled_dataset.iloc[index_90th:]
 
 print("test data head: \n",test_data.head())
+
+'''APRIL 27 '''
+#prevent label leakage
+label_columns = ["Class", "Class_Bool"]
+
+train_features= train_data.drop(columns =label_columns)
+train_labels= train_data['Class_Bool'].to_numpy()
+
+validation_features = validation_data.drop(columns = label_columns)
+validation_labels = validation_data['Class_Bool'].to_numpy()
+
+test_features = test_data.drop(columns = label_columns)
+test_labels = test_data['Class_Bool'].to_numpy()
+
+#traing model on Eccentricity and Major axis length and area
+
+input_features = [
+    'Eccentricity',
+    'Major_Axis_length',
+    'Area',
+]
+
+#define the functions
+def create_model(
+        settings: ml_edu.experiment.ExperimentSettings,
+        metrics: list[keras.metrics.Metric],
+
+    )-> keras.Model:
+    '''Create and complie simple calssifi model'''
+    model_inputs = [
+        keras.Input(name=feature, shape=(1,))
+        for feature in  settings.input_features
+    ]
+
+    concatenated_inputs = keras.layers.Concatenate()(model_inputs)
+
+    model_output = keras.layers.Dense(
+        units=1, name = 'dense_layer', activation=keras.activations.sigmoid
+    )(concatenated_inputs)
+
+    model = keras.Model(inputs = model_inputs, outputs = model_output)
+
+    model.compile(
+        optimizer=keras.optimizers.RMSprop(settings.learning_rate),
+        #binary_crossentorpy standard loos fun for binary classification
+        loss=keras.losses.binary_crossentropy(),
+        metrics=metrics,
+    )
+    return model
+
+def train_model(
+    experiment_name: str,
+    model: keras.Model,
+    dataset:pd.DataFrame,
+    labels: np.ndarray,
+    settings: ml_edu.experiment.ExperimentSettings, 
+    
+    )-> ml_edu.experiment.Experiment:
+    '''feed a ds into the model to train''' 
+
+    features = {
+        feature_name: np.array(dataset[feature_name])
+        for feature_name in settings.input_features
+    }
+    history = model.fit(
+        x=features,
+        y= labels,
+        batch_size= settings.batch_size,
+        epochs= settings.number_epochs,
+    )
+
+    return ml_edu.experiment.Experiment(
+        name = experiment_name,
+        settings= settings,
+        model=model,
+        epochs=history.epoch,
+        metrics_history= pd.DataFrame(history.history),
+    )
+
+print("Defindd the create_model and train_model")
