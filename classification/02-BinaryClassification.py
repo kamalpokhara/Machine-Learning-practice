@@ -4,6 +4,7 @@ import ml_edu.experiment
 import ml_edu.results
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 import plotly.express as px
 
 pd.options.display.max_rows = 10  # displays 10 rows of a df usually first and last 5
@@ -94,7 +95,7 @@ test_labels = test_data['Class_Bool'].to_numpy()
 
 input_features = [
     'Eccentricity',
-    'Major_Axis_length',
+    'Major_Axis_Length',
     'Area',
 ]
 
@@ -121,7 +122,7 @@ def create_model(
     model.compile(
         optimizer=keras.optimizers.RMSprop(settings.learning_rate),
         #binary_crossentorpy standard loos fun for binary classification
-        loss=keras.losses.binary_crossentropy(),
+        loss=keras.losses.BinaryCrossentropy(),
         metrics=metrics,
     )
     return model
@@ -156,3 +157,146 @@ def train_model(
     )
 
 print("Defindd the create_model and train_model")
+
+"""APRIL 29"""
+#hyperparameter specification 
+#threshold i .35
+
+settings =  ml_edu.experiment.ExperimentSettings(
+    learning_rate= 0.01,
+    number_epochs= 20,
+    batch_size= 100,
+    classification_threshold= 0.35,
+    input_features= input_features,
+)
+
+metrics = [
+    keras.metrics.BinaryAccuracy(
+        name='accuracy', threshold= settings.classification_threshold
+    ),
+    keras.metrics.Precision(
+        name='precision', thresholds= settings.classification_threshold
+    ),
+    keras.metrics.Recall(
+        name='recall', thresholds=settings.classification_threshold
+    ),
+    keras.metrics.AUC(num_thresholds=100, name='auc'),
+]
+
+model =  create_model(settings, metrics)
+
+#train model on trainng set
+expriment = train_model(
+    'baseline', model, train_features, train_labels, settings
+)
+
+#plotting metics 
+ml_edu.results.plot_experiment_metrics(expriment,['accuracy', 'precision', 'recall'] )
+plt.savefig('figures/rice_accuracy_precision_recall.png', dpi = 300)
+
+ml_edu.results.plot_experiment_metrics(expriment, ['auc'])
+plt.savefig('figures/rice_auc.png', dpi = 300)
+# plt.close()
+
+print("Both figures saved in figures/ ")
+
+# evaluating against validation set
+def compare_train_validation(expriment: ml_edu.experiment.Experiment, validation_metrics: dict[str, float]):
+    print('comparing metrices betn train and validation')
+    for metric, validation_value in validation_metrics.items():
+        print("-----------")
+        print(f"Train {metric}: {expriment.get_final_metric_value(metric):.4f}")
+        print(f"Validation {metric}: {validation_value:.4f}")
+
+validation_metrics = expriment.evaluate(validation_features, validation_labels)
+print(f"Vlaidation metrics: {validation_metrics}")
+
+compare_train_validation(expriment, validation_metrics)
+print(f"Compare train validation: {compare_train_validation}")
+
+
+#training on all input features
+all_input_features = [
+        "Area",
+        "Perimeter",
+        "Major_Axis_Length",
+        "Minor_Axis_Length",
+        "Eccentricity",
+        "Convex_Area",
+        "Extent",
+    ]
+
+
+settings_all_features  = ml_edu.experiment.ExperimentSettings(
+    learning_rate= 0.001,
+    number_epochs= 60,
+    batch_size= 100,
+    classification_threshold= 0.5,
+    input_features= all_input_features,
+)
+metrics = [
+    keras.metrics.BinaryAccuracy(
+        name='accuracy',
+        threshold=settings_all_features.classification_threshold,
+    ),
+     keras.metrics.Precision(
+        name='precision',
+        thresholds=settings_all_features.classification_threshold,
+    ),
+    keras.metrics.Recall(
+        name='recall', thresholds=settings_all_features.classification_threshold
+    ),
+    keras.metrics.AUC(num_thresholds=100, name='auc'),
+]
+
+model_all_features = create_model(settings_all_features, metrics)
+
+#train
+expriment_all_features = train_model(
+    'all_features',
+    model_all_features, 
+    train_features,
+    train_labels,
+    settings_all_features,
+)
+
+# plot
+ml_edu.results.plot_experiment_metrics(expriment_all_features, ['accuracy', 'precision','recall'])
+plt.savefig('figures/rice_all_features_accuracy_precision_recall.png', dpi = 300)
+
+ml_edu.results.plot_experiment_metrics(expriment_all_features, ['auc'])
+plt.savefig('figures/rice_all_features_auc.png', dpi = 300)
+plt.close()
+
+print("Fighures saved for all_input_feature train")
+
+#evaluating full_featurs on validation
+
+
+validation_metrics_all_features = expriment_all_features.evaluate(
+    validation_features,
+    validation_labels,
+)
+print(f"Vlaidation metrics: {validation_metrics_all_features}")
+
+compare_train_validation(expriment_all_features, validation_metrics_all_features)
+
+print(f"\ncomparing result ---------------------------------")
+compare_result =  ml_edu.results.compare_experiment(
+    [expriment, expriment_all_features], 
+    ['accuracy', 'auc'],
+    validation_features, validation_labels
+)
+
+plt.savefig("figures/rice_compared.png", dpi=300)
+plt.close();  
+print(f"Half vs Full fearures figure saved")
+
+#computing the final tesst metrics
+print("\n-----------------")
+test_metrics_all_features = expriment_all_features.evaluate(
+    test_features,
+    test_labels,
+)
+for metric, test_value in test_metrics_all_features.items():
+  print(f'Test {metric}:  {test_value:.4f}')
